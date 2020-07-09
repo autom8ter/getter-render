@@ -22,6 +22,9 @@ A values file is used to render files fetched from remote sources using go-gette
 	Run: func(cmd *cobra.Command, args []string) {
 		tmpl := render.NewFileSet()
 		sources := viper.GetStringSlice("sources")
+		if len(sources) == 0 {
+			log.Fatal("please add at least one source to `sources` in values.yaml")
+		}
 		if err := tmpl.Load(context.Background(), sources); err != nil {
 			log.Fatalf("failed to load sources: %v error: %s", sources, err.Error())
 		}
