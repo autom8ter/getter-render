@@ -3,17 +3,19 @@ package render_test
 import (
 	"context"
 	"github.com/autom8ter/getter-render/render"
+	"github.com/spf13/viper"
 	"testing"
 )
 
 func TestRenderer(t *testing.T) {
 	renderer := render.NewRenderer()
 	if err := renderer.LoadSources(context.Background(), map[string]string{
-		"tmp2": "git@github.com:autom8ter/getter-render.git/LICENSE",
+		"tmp": "https://raw.githubusercontent.com/autom8ter/getter-render/master/LICENSE",
 	}); err != nil {
 		t.Fatal(err.Error())
 	}
 	for name, _ := range renderer.FileSet() {
 		t.Logf("filename: %s\n", name)
 	}
+	renderer.Compile(viper.AllSettings())
 }
