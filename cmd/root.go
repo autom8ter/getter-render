@@ -3,7 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/autom8ter/getter-tmpl/render"
+	"github.com/autom8ter/getter-render/render"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"log"
@@ -20,15 +20,15 @@ var rootCmd = &cobra.Command{
 A values file is used to render files fetched from remote sources using go-getter and the go templating language.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		tmpl := render.NewFileSet()
+		renderer := render.NewRenderer()
 		sources := viper.GetStringSlice("sources")
 		if len(sources) == 0 {
 			log.Fatal("please add at least one source to `sources` in values.yaml")
 		}
-		if err := tmpl.Load(context.Background(), sources); err != nil {
+		if err := renderer.LoadSources(context.Background(), sources); err != nil {
 			log.Fatalf("failed to load sources: %v error: %s", sources, err.Error())
 		}
-		if err := tmpl.Compile(viper.AllSettings()); err != nil {
+		if err := renderer.Compile(viper.AllSettings()); err != nil {
 			log.Fatalf("failed to compile sources: %v error: %s", sources, err.Error())
 		}
 	},

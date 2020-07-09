@@ -10,38 +10,19 @@ import (
 	"sync"
 )
 
-type FileSet map[string]Template
-
-func NewFileSet(files ...map[string]Template) FileSet {
-	fileset := map[string]Template{}
-	for _, set := range files {
-		for k, v := range set {
-			fileset[k] = v
-		}
-	}
-	return fileset
+type Renderer struct {
+	fileSet map[string]Template
+	mu      *sync.Mutex
 }
 
-func (f FileSet) Compile(data interface{}) error {
-	for filePath, content := range f {
-		dirPath := filepath.Dir(filePath)
-		if dirPath != "." {
-			os.MkdirAll(dirPath, os.ModePerm)
-		}
-		file, err := os.Create(filePath)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-		if err := content.Compile(file, data); err != nil {
-			return err
-		}
+func NewRenderer() *Renderer {
+	return &Renderer{
+		fileSet: map[string]Template{},
+		mu:      &sync.Mutex{},
 	}
-	return nil
 }
 
-func (f FileSet) LoadFunc() filepath.WalkFunc {
-	var mu = &sync.Mutex{}
+func (r *Renderer) LoadFunc() filepath.WalkFunc {
 	return func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
@@ -53,14 +34,14 @@ func (f FileSet) LoadFunc() filepath.WalkFunc {
 		if err != nil {
 			return err
 		}
-		mu.Lock()
-		f[path] = NewTemplate(string(bits))
-		mu.Unlock()
+		r.mu.Lock()
+		r.fileSet[path] = NewTemplate(string(bits))
+		r.mu.Unlock()
 		return nil
 	}
 }
 
-func (f FileSet) LoadSources(ctx context.Context, sources []string) error {
+func (r *Renderer) LoadSources(ctx context.Context, sources []string) error {
 	for _, source := range sources {
 		tmpdir, err := ioutil.TempDir("", "")
 		if err != nil {
@@ -87,7 +68,25 @@ func (f FileSet) LoadSources(ctx context.Context, sources []string) error {
 		if err := client.Get(); err != nil {
 			return errors.Wrapf(err, "failed to load files. source: %s", source)
 		}
-		if err := filepath.Walk(tmpdir, f.LoadFunc()); err != nil {
+		if err := filepath.Walk(tmpdir, r.LoadFunc()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Renderer) Compile(data interface{}) error {
+	for filePath, content := range r.fileSet {
+		dirPath := filepath.Dir(filePath)
+		if dirPath != "." {
+			os.MkdirAll(dirPath, os.ModePerm)
+		}
+		file, err := os.Create(filePath)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		if err := content.Compile(file, data); err != nil {
 			return err
 		}
 	}
