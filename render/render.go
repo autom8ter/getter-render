@@ -49,6 +49,9 @@ func (r *Renderer) LoadFunc(pathRewrites map[string]string) filepath.WalkFunc {
 }
 
 func (r *Renderer) LoadSources(ctx context.Context, destSource map[string]string) error {
+	if len(destSource) == 0 {
+		return errors.New("empty source mapping")
+	}
 	for dest, source := range destSource {
 		tmpdir, err := ioutil.TempDir("", "")
 		if err != nil {

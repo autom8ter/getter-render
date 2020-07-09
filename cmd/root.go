@@ -11,14 +11,13 @@ import (
 )
 
 var (
-	valuesFile string
-	sourceMap  map[string]string
+	sourceMap map[string]string
 )
 
 var rootCmd = &cobra.Command{
 	Use: "getter-render",
 	Long: `getter-render extends Hashicorps go-getter library/cli by adding template rendering functionality.
-A values file is used to render files fetched from remote sources using go-getter and the go templating language.
+A render file is used to render files fetched from remote sources using go-getter and the go templating language.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		renderer := render.NewRenderer()
@@ -26,7 +25,7 @@ A values file is used to render files fetched from remote sources using go-gette
 			sourceMap = viper.GetStringMapString("source_map")
 		}
 		if len(sourceMap) == 0 {
-			log.Fatal("please add at least one dest:source to `source_map` in values.yaml")
+			log.Fatal("please add at least one dest:source to `source_map` in render.yaml")
 		}
 		if err := renderer.LoadSources(context.Background(), sourceMap); err != nil {
 			log.Fatalf("failed to load sourceMap: %v error: %s", sourceMap, err.Error())
@@ -48,15 +47,14 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	rootCmd.PersistentFlags().StringVarP(&valuesFile, "values", "v", "values.yaml", "values file to render files")
-	rootCmd.PersistentFlags().StringVarP(&valuesFile, "values", "v", "values.yaml", "values file to render files")
+	rootCmd.PersistentFlags().StringToStringVarP(&sourceMap, "source", "s", map[string]string{}, "source mapping dest: source")
 }
 
-// initConfig reads in values file and ENV variables if set.
+// initConfig reads in render file and ENV variables if set.
 func initConfig() {
-	viper.SetConfigFile(valuesFile)
+	viper.SetConfigFile("render.yaml")
 	viper.AutomaticEnv() // read in environment variables that match
-	if err := viper.ReadInConfig(); err != nil {
-		log.Fatalf("failed to read in values file: %s", valuesFile)
+	if err := viper.ReadInConfig(); err == nil {
+		log.Println("loaded render.yaml")
 	}
 }
