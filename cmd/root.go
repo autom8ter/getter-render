@@ -12,6 +12,7 @@ import (
 
 var (
 	valuesFile string
+	sourceMap  map[string]string
 )
 
 var rootCmd = &cobra.Command{
@@ -21,15 +22,17 @@ A values file is used to render files fetched from remote sources using go-gette
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		renderer := render.NewRenderer()
-		sources := viper.GetStringSlice("sources")
-		if len(sources) == 0 {
-			log.Fatal("please add at least one source to `sources` in values.yaml")
+		if len(sourceMap) == 0 {
+			sourceMap = viper.GetStringMapString("source_map")
 		}
-		if err := renderer.LoadSources(context.Background(), sources); err != nil {
-			log.Fatalf("failed to load sources: %v error: %s", sources, err.Error())
+		if len(sourceMap) == 0 {
+			log.Fatal("please add at least one dest:source to `source_map` in values.yaml")
+		}
+		if err := renderer.LoadSources(context.Background(), sourceMap); err != nil {
+			log.Fatalf("failed to load sourceMap: %v error: %s", sourceMap, err.Error())
 		}
 		if err := renderer.Compile(viper.AllSettings()); err != nil {
-			log.Fatalf("failed to compile sources: %v error: %s", sources, err.Error())
+			log.Fatalf("failed to compile sourceMap: %v error: %s", sourceMap, err.Error())
 		}
 	},
 }
@@ -45,6 +48,7 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+	rootCmd.PersistentFlags().StringVarP(&valuesFile, "values", "v", "values.yaml", "values file to render files")
 	rootCmd.PersistentFlags().StringVarP(&valuesFile, "values", "v", "values.yaml", "values file to render files")
 }
 

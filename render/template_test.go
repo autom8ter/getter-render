@@ -12,7 +12,7 @@ type List struct {
 	Elements []string
 }
 
-func Test(t *testing.T) {
+func TestTemplate(t *testing.T) {
 	list := render.NewTemplate(`list = [{{range $i, $v := .Elements}}{{if $i}}, {{end}}"{{.}}"{{end}}]`)
 	buffer := bytes.NewBuffer(nil)
 	if err := list.Compile(buffer, listObj); err != nil {

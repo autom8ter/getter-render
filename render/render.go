@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -22,7 +23,7 @@ func NewRenderer() *Renderer {
 	}
 }
 
-func (r *Renderer) LoadFunc() filepath.WalkFunc {
+func (r *Renderer) LoadFunc(pathRewrites map[string]string) filepath.WalkFunc {
 	return func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
@@ -34,15 +35,21 @@ func (r *Renderer) LoadFunc() filepath.WalkFunc {
 		if err != nil {
 			return err
 		}
+		var cleansedPath = path
+		if len(pathRewrites) > 0 {
+			for old, newPath := range pathRewrites {
+				cleansedPath = strings.ReplaceAll(cleansedPath, old, newPath)
+			}
+		}
 		r.mu.Lock()
-		r.fileSet[path] = NewTemplate(string(bits))
+		r.fileSet[cleansedPath] = NewTemplate(string(bits))
 		r.mu.Unlock()
 		return nil
 	}
 }
 
-func (r *Renderer) LoadSources(ctx context.Context, sources []string) error {
-	for _, source := range sources {
+func (r *Renderer) LoadSources(ctx context.Context, destSource map[string]string) error {
+	for dest, source := range destSource {
 		tmpdir, err := ioutil.TempDir("", "")
 		if err != nil {
 			return err
@@ -68,7 +75,9 @@ func (r *Renderer) LoadSources(ctx context.Context, sources []string) error {
 		if err := client.Get(); err != nil {
 			return errors.Wrapf(err, "failed to load files. source: %s", source)
 		}
-		if err := filepath.Walk(tmpdir, r.LoadFunc()); err != nil {
+		if err := filepath.Walk(tmpdir, r.LoadFunc(map[string]string{
+			tmpdir: dest,
+		})); err != nil {
 			return err
 		}
 	}
@@ -91,4 +100,8 @@ func (r *Renderer) Compile(data interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (r *Renderer) FileSet() map[string]Template {
+	return r.fileSet
 }
