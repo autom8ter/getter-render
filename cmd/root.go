@@ -11,27 +11,35 @@ import (
 )
 
 var (
-	sourceMap map[string]string
+	dataFile string
+	output   string
+	source   string
 )
 
 var rootCmd = &cobra.Command{
 	Use: "getter-render",
 	Long: `getter-render extends Hashicorps go-getter library/cli by adding template rendering functionality.
-A render file is used to render files fetched from remote sources using go-getter and the go templating language.
+A data file is used to render files fetched from remote sources using go-getter and the go templating language.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		renderer := render.NewRenderer()
-		if len(sourceMap) == 0 {
-			sourceMap = viper.GetStringMapString("source_map")
+		if source == "" {
+			source = viper.GetString("source")
 		}
-		if len(sourceMap) == 0 {
-			log.Fatal("please add at least one dest:source to `source_map` in render.yaml")
+		if output == "" {
+			source = viper.GetString("output")
 		}
-		if err := renderer.LoadSources(context.Background(), sourceMap); err != nil {
-			log.Fatalf("failed to load sourceMap: %v error: %s", sourceMap, err.Error())
+		if source == "" || output == "" {
+			log.Fatal("source(-s --source) and output(-o --output) are required flags")
+			return
+		}
+		if err := renderer.LoadSources(context.Background(), map[string]string{
+			output: source,
+		}); err != nil {
+			log.Fatalf("failed to load source: %s output: %s error: %s", source, output, err.Error())
 		}
 		if err := renderer.Compile(viper.AllSettings()); err != nil {
-			log.Fatalf("failed to compile sourceMap: %v error: %s", sourceMap, err.Error())
+			log.Fatalf("failed to compile source: %s output: %s error: %s", source, output, err.Error())
 		}
 	},
 }
@@ -47,14 +55,19 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	rootCmd.PersistentFlags().StringToStringVarP(&sourceMap, "source", "s", map[string]string{}, "source mapping dest: source")
+	rootCmd.PersistentFlags().StringVarP(&output, "output", "o", "", "output directory(required)")
+	rootCmd.PersistentFlags().StringVarP(&source, "source", "s", "", "remote file source(required)")
+	rootCmd.PersistentFlags().StringVarP(&dataFile, "data", "d", "", "path to data file to render files with (ex data.json)")
 }
 
-// initConfig reads in render file and ENV variables if set.
+// initConfig reads in the data file if it exists and ENV variables if set.
 func initConfig() {
-	viper.SetConfigFile("render.yaml")
 	viper.AutomaticEnv() // read in environment variables that match
-	if err := viper.ReadInConfig(); err == nil {
-		log.Println("loaded render.yaml")
+	if dataFile != "" {
+		viper.SetConfigFile(dataFile)
+
+		if err := viper.ReadInConfig(); err == nil {
+			log.Printf("loaded %s\n", dataFile)
+		}
 	}
 }
