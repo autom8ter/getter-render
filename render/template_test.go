@@ -2,7 +2,7 @@ package render_test
 
 import (
 	"bytes"
-	"github.com/autom8ter/getter-tmpl/render"
+	"github.com/autom8ter/getter-render/render"
 	"testing"
 )
 
@@ -20,12 +20,4 @@ func TestTemplate(t *testing.T) {
 	}
 	newList := render.NewTemplate(buffer.String())
 	t.Logf("compiled: %s\n", newList.String())
-
-	fileSet := render.NewFileSet(map[string]render.Template{
-		"tmp/list.txt": list,
-	})
-
-	if err := fileSet.Compile(listObj); err != nil {
-		t.Fatal(err.Error())
-	}
 }
