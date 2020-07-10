@@ -23,6 +23,12 @@ func NewRenderer() *Renderer {
 	}
 }
 
+func (r *Renderer) AddFiles(fileSet map[string]Template) {
+	for k, v := range fileSet {
+		r.fileSet[k] = v
+	}
+}
+
 func (r *Renderer) LoadFunc(pathRewrites map[string]string) filepath.WalkFunc {
 	return func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
