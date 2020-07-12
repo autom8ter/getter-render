@@ -7,6 +7,12 @@ import (
 	"text/template"
 )
 
+func init() {
+	for k, fn := range sprig.GenericFuncMap() {
+		functions[k] = fn
+	}
+}
+
 var functions = map[string]interface{}{
 	"get":                viper.Get,
 	"getString":          viper.GetString,
@@ -27,9 +33,6 @@ var functions = map[string]interface{}{
 }
 
 func funcMap() template.FuncMap {
-	for k, fn := range sprig.GenericFuncMap() {
-		functions[k] = fn
-	}
 	return functions
 }
 
