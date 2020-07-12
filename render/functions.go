@@ -3,6 +3,7 @@ package render
 import (
 	"github.com/Masterminds/sprig"
 	"github.com/spf13/viper"
+	"os"
 	"text/template"
 )
 
@@ -17,10 +18,12 @@ var functions = map[string]interface{}{
 	"getIntSlice":        viper.GetIntSlice,
 	"getTime":            viper.GetTime,
 	"getFloat64":         viper.GetFloat64,
+	"getDuration":        viper.GetDuration,
 	"isSet":              viper.IsSet,
 	"inConfig":           viper.InConfig,
 	"allKeys":            viper.AllKeys,
 	"allSettings":        viper.AllSettings,
+	"getEnv":             os.Getenv,
 }
 
 func funcMap() template.FuncMap {

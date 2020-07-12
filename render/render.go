@@ -2,6 +2,7 @@ package render
 
 import (
 	"context"
+	"github.com/dixonwille/skywalker"
 	"github.com/hashicorp/go-getter"
 	"github.com/pkg/errors"
 	"io/ioutil"
@@ -24,9 +25,23 @@ func NewRenderer() *Renderer {
 }
 
 func (r *Renderer) AddFiles(fileSet map[string]Template) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	for k, v := range fileSet {
 		r.fileSet[k] = v
 	}
+}
+
+func (r *Renderer) AddFile(filePath string, tmpl Template) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.fileSet[filePath] = tmpl
+}
+
+func (r *Renderer) GetFile(filePath string) Template {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.fileSet[filePath]
 }
 
 func (r *Renderer) LoadFunc(pathRewrites map[string]string) filepath.WalkFunc {
@@ -47,11 +62,15 @@ func (r *Renderer) LoadFunc(pathRewrites map[string]string) filepath.WalkFunc {
 				cleansedPath = strings.ReplaceAll(cleansedPath, old, newPath)
 			}
 		}
-		r.mu.Lock()
-		r.fileSet[cleansedPath] = NewTemplate(string(bits))
-		r.mu.Unlock()
+		r.AddFile(cleansedPath, NewTemplate(string(bits)))
 		return nil
 	}
+}
+
+type walkFunc func(path string)
+
+func (w walkFunc) Work(path string) {
+	w(path)
 }
 
 func (r *Renderer) LoadSources(ctx context.Context, destSource map[string]string) error {
@@ -84,9 +103,24 @@ func (r *Renderer) LoadSources(ctx context.Context, destSource map[string]string
 		if err := client.Get(); err != nil {
 			return errors.Wrapf(err, "failed to load files. source: %s", source)
 		}
-		if err := filepath.Walk(tmpdir, r.LoadFunc(map[string]string{
+		pathRewrites := map[string]string{
 			tmpdir: dest,
-		})); err != nil {
+		}
+		walker := skywalker.New(tmpdir, walkFunc(func(path string) {
+			bits, err := ioutil.ReadFile(path)
+			if err != nil {
+				return
+			}
+			var cleansedPath = path
+			if len(pathRewrites) > 0 {
+				for old, newPath := range pathRewrites {
+					cleansedPath = strings.ReplaceAll(cleansedPath, old, newPath)
+				}
+			}
+			r.AddFile(cleansedPath, NewTemplate(string(bits)))
+		}))
+
+		if err := walker.Walk(); err != nil {
 			return err
 		}
 	}
@@ -94,19 +128,35 @@ func (r *Renderer) LoadSources(ctx context.Context, destSource map[string]string
 }
 
 func (r *Renderer) Compile(data interface{}) error {
-	for filePath, content := range r.fileSet {
-		dirPath := filepath.Dir(filePath)
-		if dirPath != "." {
-			os.MkdirAll(dirPath, os.ModePerm)
+	wg := &sync.WaitGroup{}
+	var errs []error
+	for path, tmpl := range r.fileSet {
+		wg.Add(1)
+		go func(filePath string, content Template) {
+			defer wg.Done()
+			dirPath := filepath.Dir(filePath)
+			if dirPath != "." {
+				os.MkdirAll(dirPath, os.ModePerm)
+			}
+			file, err := os.Create(filePath)
+			if err != nil {
+				errs = append(errs, err)
+				return
+			}
+			defer file.Close()
+			if err := content.Compile(file, data); err != nil {
+				errs = append(errs, err)
+				return
+			}
+		}(path, tmpl)
+	}
+	wg.Wait()
+	if len(errs) > 0 {
+		var err = errors.New("compilation error!")
+		for _, e := range errs {
+			err = errors.Wrap(err, e.Error())
 		}
-		file, err := os.Create(filePath)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-		if err := content.Compile(file, data); err != nil {
-			return err
-		}
+		return err
 	}
 	return nil
 }
